@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Editor from '@monaco-editor/react';
 
-// ── Mock data ────────────────────────────────────────────────────────────────
+// ── Mock problem data ─────────────────────────────────────────────────────────
 const PROBLEM = {
   title:       'Two Sum — Find all unique pairs',
   difficulty:  'Medium',
@@ -34,37 +34,8 @@ Each input will have **at least one solution**, and you may return the pairs in 
 
 const LANGUAGES = ['JavaScript', 'Python', 'C++', 'Java', 'Go', 'Rust'];
 
-const MOCK_OUTPUT = {
-  pass: {
-    status: 'Accepted',
-    passed: 3,
-    total:  3,
-    time:   '48ms',
-    memory: '42.1 MB',
-    lines: [
-      { type: 'success', text: '✓  Test 1 passed (12ms)' },
-      { type: 'success', text: '✓  Test 2 passed (9ms)' },
-      { type: 'success', text: '✓  Test 3 passed (11ms)' },
-      { type: 'info',    text: 'Runtime: 48ms  ·  Memory: 42.1 MB' },
-    ],
-  },
-  fail: {
-    status: 'Wrong Answer',
-    passed: 1,
-    total:  3,
-    time:   '31ms',
-    memory: '41.8 MB',
-    lines: [
-      { type: 'success', text: '✓  Test 1 passed (9ms)' },
-      { type: 'error',   text: '✗  Test 2 failed' },
-      { type: 'muted',   text: '   Expected: [[1, 2]]' },
-      { type: 'muted',   text: '   Got:      [[0, 1]]' },
-      { type: 'error',   text: '✗  Test 3 failed' },
-    ],
-  },
-};
 
-// ── Live dot ─────────────────────────────────────────────────────────────────
+// ── Live dot ──────────────────────────────────────────────────────────────────
 function LiveDot({ color = '#10b981' }) {
   return (
     <span style={{ position: 'relative', display: 'inline-flex', width: 10, height: 10 }}>
@@ -84,89 +55,110 @@ function LiveDot({ color = '#10b981' }) {
   );
 }
 
-// ── Header ───────────────────────────────────────────────────────────────────
-function ArenaHeader({ player, opponent, timerSlot }) {
+// ── Header ────────────────────────────────────────────────────────────────────
+function ArenaHeader({ player, opponent, timeString, myScore = 0, opponentScore = 0 }) {
   return (
     <header style={{
-      height: 52, background: '#111118',
+      height: 64, background: '#111118',
       borderBottom: '1px solid #1e1e2e',
       display: 'flex', alignItems: 'center',
-      padding: '0 16px', gap: 12, flexShrink: 0,
+      padding: '0 20px', gap: 16, flexShrink: 0,
       zIndex: 20,
     }}>
-      <span style={{ fontSize: 14, fontWeight: 700, color: '#10b981', marginRight: 4 }}>◈</span>
-      <span style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', marginRight: 8 }}>Arena</span>
+      {/* Brand */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        <span style={{ fontSize: 18, fontWeight: 700, color: '#10b981', marginRight: 6 }}>◈</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.02em' }}>Arena</span>
+      </div>
 
-      <div style={{ width: 1, height: 20, background: '#1e1e2e' }} />
+      <div style={{ width: 1, height: 24, background: '#1e1e2e', margin: '0 8px' }} />
 
-      {/* Player */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+      {/* You */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{
-          width: 26, height: 26, borderRadius: '50%',
+          width: 32, height: 32, borderRadius: '50%',
           background: '#0d2a1a', border: '1px solid #064e2a',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 700, color: '#10b981',
+          fontSize: 13, fontWeight: 700, color: '#10b981',
         }}>
-          {player.avatar}
+          {player.avatar ?? player.name?.[0]?.toUpperCase() ?? 'P'}
         </div>
-        <span style={{ fontSize: 13, fontWeight: 500, color: '#f1f5f9' }}>{player.name}</span>
-        <span style={{
-          fontSize: 10, fontWeight: 600, background: '#0d2a1a',
-          border: '1px solid #064e2a', color: '#10b981',
-          padding: '1px 6px', borderRadius: 4, textTransform: 'uppercase', letterSpacing: '0.06em',
-        }}>
-          You
-        </span>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', lineHeight: 1.2 }}>{player.name} (You)</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#10b981' }}>{player.elo} ELO</span>
+        </div>
       </div>
 
-      <div style={{ width: 1, height: 20, background: '#1e1e2e' }} />
+      <span style={{ fontSize: 11, fontWeight: 800, color: '#475569', margin: '0 4px' }}>VS</span>
 
       {/* Opponent */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-        <LiveDot color="#10b981" />
-        <div style={{
-          width: 26, height: 26, borderRadius: '50%',
-          background: '#0d1f3c', border: '1px solid #1e3a5f',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 700, color: '#3b82f6',
-        }}>
-          {opponent.avatar}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8', lineHeight: 1.2 }}>{opponent.name}</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: '#475569' }}>{opponent.elo} ELO</span>
         </div>
-        <span style={{ fontSize: 13, fontWeight: 500, color: '#94a3b8' }}>{opponent.name}</span>
-        <span style={{
-          fontSize: 10, fontWeight: 500, color: '#475569',
-          background: '#16161f', border: '1px solid #1e1e2e',
-          padding: '1px 6px', borderRadius: 4,
-        }}>
-          {opponent.elo} ELO
-        </span>
-        <span style={{
-          fontSize: 10, fontWeight: 600,
+        <div style={{ position: 'relative' }}>
+          <LiveDot color="#ef4444" />
+        </div>
+        <div style={{
+          width: 32, height: 32, borderRadius: '50%',
           background: '#1a0808', border: '1px solid #4e1414',
-          color: '#ef4444', padding: '1px 6px', borderRadius: 4,
-          textTransform: 'uppercase', letterSpacing: '0.06em',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13, fontWeight: 700, color: '#ef4444',
         }}>
-          1 / 3
+          {opponent.avatar ?? opponent.name?.[0]?.toUpperCase() ?? 'O'}
+        </div>
+      </div>
+
+      {/* ── NEW: COMPETITIVE LOBBY TRACKER ── */}
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 24 }}>
+        
+        {/* Your Progress */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: '#475569', letterSpacing: '0.05em' }}>YOUR TESTS</span>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[1, 2, 3].map(testNum => (
+              <div key={testNum} style={{ 
+                width: 24, height: 6, borderRadius: 4, transition: 'all 0.3s ease',
+                background: myScore >= testNum ? '#10b981' : '#1e1e2e', 
+                boxShadow: myScore >= testNum ? '0 0 8px rgba(16, 185, 129, 0.4)' : 'none' 
+              }} />
+            ))}
+          </div>
+        </div>
+
+        <div style={{ width: 1, height: 32, background: '#1e1e2e' }} />
+
+        {/* Central Timer */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 80 }}>
+        <span style={{ fontSize: 10, fontWeight: 800, color: '#3b82f6', letterSpacing: '0.1em', marginBottom: 3 }}>IN PROGRESS</span>
+        <span style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 700, color: '#f1f5f9', lineHeight: 1 }}>
+          {timeString}
         </span>
       </div>
 
-      <div style={{ marginLeft: 'auto' }}>
-        {timerSlot ?? (
-          <div style={{
-            background: '#0f0f1a', border: '1px solid #1e1e2e',
-            borderRadius: 8, padding: '4px 14px',
-            fontFamily: 'monospace', fontSize: 18, fontWeight: 700,
-            color: '#10b981', letterSpacing: '0.05em',
-          }}>
-            10:00
+        <div style={{ width: 1, height: 32, background: '#1e1e2e' }} />
+
+        {/* Opponent Progress */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: '#475569', letterSpacing: '0.05em' }}>OPPONENT</span>
+          <div style={{ display: 'flex', gap: 4 }}>
+             {[1, 2, 3].map(testNum => (
+              <div key={testNum} style={{ 
+                width: 24, height: 6, borderRadius: 4, transition: 'all 0.3s ease',
+                background: opponentScore >= testNum ? '#ef4444' : '#1e1e2e', 
+                boxShadow: opponentScore >= testNum ? '0 0 8px rgba(239, 68, 68, 0.4)' : 'none' 
+              }} />
+            ))}
           </div>
-        )}
+        </div>
+
       </div>
     </header>
   );
 }
 
-// ── Problem pane ─────────────────────────────────────────────────────────────
+// ── Problem pane ──────────────────────────────────────────────────────────────
 function ProblemPane({ problem }) {
   const diffMap = {
     Easy:   { bg: '#0d2a1a', border: '#064e2a', color: '#10b981' },
@@ -282,10 +274,22 @@ function ProblemPane({ problem }) {
   );
 }
 
-// ── Editor pane ──────────────────────────────────────────────────────────────
+// ── Editor pane ───────────────────────────────────────────────────────────────
 function EditorPane({ onSubmit, submitting }) {
   const [lang, setLang]         = useState('JavaScript');
   const [dropOpen, setDropOpen] = useState(false);
+  const editorRef               = useRef(null); // NEW: Reference to the editor
+
+  // NEW: Save the editor instance when it loads
+  const handleEditorDidMount = (editor, monaco) => {
+    editorRef.current = editor;
+  };
+
+  // NEW: Grab the code and language, then pass it to the parent
+  const handleRun = () => {
+    const currentCode = editorRef.current ? editorRef.current.getValue() : '';
+    onSubmit(lang, currentCode);
+  };
 
   return (
     <div style={{
@@ -296,7 +300,7 @@ function EditorPane({ onSubmit, submitting }) {
         height: 44, background: '#111118', borderBottom: '1px solid #1e1e2e',
         display: 'flex', alignItems: 'center', padding: '0 12px', gap: 8, flexShrink: 0,
       }}>
-        {/* Language dropdown */}
+        {/* ... (Keep your Language dropdown code exactly the same here) ... */}
         <div style={{ position: 'relative' }}>
           <button
             onClick={() => setDropOpen(o => !o)}
@@ -356,7 +360,7 @@ function EditorPane({ onSubmit, submitting }) {
         </button>
 
         <motion.button
-          onClick={onSubmit}
+          onClick={handleRun} // UPDATED: Call our new handler instead of raw onSubmit
           whileTap={{ scale: 0.95, y: 1 }}
           disabled={submitting}
           style={{
@@ -378,6 +382,7 @@ function EditorPane({ onSubmit, submitting }) {
           defaultLanguage="javascript"
           language={lang.toLowerCase()}
           theme="vs-dark"
+          onMount={handleEditorDidMount} // NEW: Attach the ref to Monaco
           options={{
             fontSize: 14,
             fontFamily: '"Fira Code", monospace',
@@ -391,7 +396,6 @@ function EditorPane({ onSubmit, submitting }) {
     </div>
   );
 }
-
 // ── Terminal pane ─────────────────────────────────────────────────────────────
 function TerminalPane({ output, running }) {
   const lineColor = { success: '#10b981', error: '#ef4444', info: '#3b82f6', muted: '#475569' };
@@ -469,38 +473,131 @@ function TerminalPane({ output, running }) {
   );
 }
 
-// ── Main Arena ────────────────────────────────────────────────────────────────
-export default function Arena({ timerSlot, matchData }) {
+// ── Battle (main export) ──────────────────────────────────────────────────────
+export default function Battle({ matchData, socket }) {
   const [submitting, setSubmitting] = useState(false);
   const [output, setOutput]         = useState(null);
-  const submitCount                 = useRef(0);
 
-  const player   = matchData?.player1 ?? { name: 'alex_dev', avatar: 'A', elo: 1842 };
-  const opponent = matchData?.player2 ?? { name: 'sk_coder', avatar: 'S', elo: 1790 };
+  // ── NEW: Real-time Countdown Timer (10 minutes = 600 seconds) ──
+  const [timeLeft, setTimeLeft] = useState(600);
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prevTime) => (prevTime > 0 ? prevTime - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer); // Cleanup when component unmounts
+  }, []);
+
+  // Format seconds into clean MM:SS format
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  // NEW: State to track how many tests the opponent passed
+  const [opponentScore, setOpponentScore] = useState(0);
+  const [myScore, setMyScore]             = useState(0); 
+
+  // NEW: Listen for the opponent's progress
+  useEffect(() => {
+    if (!socket) return;
+    
+    socket.on('opponent_progress', (data) => {
+      setOpponentScore(data.passedCount);
+    });
+
+    return () => socket.off('opponent_progress');
+  }, [socket]);
+
+  // ── CLEANED UP PLAYER ASSIGNMENT ──
+  // 1. Check who WE are based on our unique Socket ID
+  const amIPlayer1 = matchData?.player1?.id === socket?.id;
+
+  // 2. Safe fallbacks so the UI doesn't crash if testing without a server
+  const defaultPlayer = { name: 'alex_dev', avatar: 'A', elo: 1842 };
+  const defaultOpponent = { name: 'sk_coder', avatar: 'S', elo: 1790 };
+
+  // 3. Dynamically assign the left and right sides of the header
+  const player   = (amIPlayer1 ? matchData?.player1 : matchData?.player2) ?? defaultPlayer;
+  const opponent = (amIPlayer1 ? matchData?.player2 : matchData?.player1) ?? defaultOpponent;
+
+  // ── REAL API SUBMISSION ───────────────────────────────────────────────────
+  const handleSubmit = async (language, code) => {
     setSubmitting(true);
     setOutput(null);
-    const count = ++submitCount.current;
-    setTimeout(() => {
-      if (submitCount.current !== count) return;
+
+    try {
+      // 1. Send the code to your local Node.js server
+      const response = await fetch('http://localhost:3000/api/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          problemId: 'two-sum', 
+          language: language.toLowerCase(), 
+          code: code
+        })
+      });
+
+      const data = await response.json();
+
+      // NEW: Update your own score and broadcast it to the room!
+      setMyScore(data.passed);
+      if (socket && matchData?.roomId) {
+        socket.emit('update_progress', { 
+          roomId: matchData.roomId, 
+          passedCount: data.passed 
+        });
+      }
+
+      // 2. Format the JDoodle results to match your beautiful Terminal UI
+      const formattedLines = data.results.map(res => {
+        if (res.passed) {
+          return { type: 'success', text: `✓  Test ${res.testCase} passed (${res.cpuTime || 0}s)` };
+        } else {
+          return { type: 'error', text: `✗  Test ${res.testCase} failed\n   Expected: ${res.expected}\n   Got:      ${res.output}` };
+        }
+      });
+
+      // Add a final summary line with total memory and time
+      formattedLines.push({ 
+        type: 'info', 
+        text: `Runtime: ${data.results[0]?.cpuTime ?? '0.00'}s  ·  Memory: ${data.results[0]?.memory || 'N/A'} KB` 
+      });
+
+      // 3. Update the UI
+      setOutput({
+        status: data.status,
+        passed: data.passed,
+        total: data.total,
+        time: `${data.results[0]?.cpuTime || 0}s`,
+        memory: `${data.results[0]?.memory || 0} KB`,
+        lines: formattedLines
+      });
+
+    } catch (error) {
+      console.error('API Error:', error);
+      setOutput({
+        status: 'Error', passed: 0, total: 3, time: '0s', memory: '0 KB',
+        lines: [{ type: 'error', text: 'Server connection failed. Is your backend running?' }]
+      });
+    } finally {
       setSubmitting(false);
-      setOutput(count % 2 === 1 ? MOCK_OUTPUT.pass : MOCK_OUTPUT.fail);
-    }, 1800);
+    }
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3 }}
-      style={{
-        height: '100vh', display: 'flex', flexDirection: 'column',
-        background: '#0a0a0f', overflow: 'hidden',
-      }}
-    >
-      <ArenaHeader player={player} opponent={opponent} timerSlot={timerSlot} />
+    <div style={{
+      height: '100vh', display: 'flex', flexDirection: 'column',
+      background: '#0a0a0f', overflow: 'hidden',
+    }}>
+      <ArenaHeader 
+        player={player} 
+        opponent={opponent} 
+        timeString={formatTime(timeLeft)} 
+        myScore={myScore}            
+        opponentScore={opponentScore} 
+      />
 
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '340px 1fr', overflow: 'hidden' }}>
         <ProblemPane problem={PROBLEM} />
@@ -510,8 +607,6 @@ export default function Arena({ timerSlot, matchData }) {
           <TerminalPane output={output} running={submitting} />
         </div>
       </div>
-
-      {/* ArenaChat removed — no import, no render */}
-    </motion.div>
+    </div>
   );
 }

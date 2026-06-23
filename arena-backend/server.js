@@ -107,9 +107,77 @@ app.post('/api/execute', async (req, res) => {
 });
 
 // ── Socket.IO placeholder (for matchmaking later) ─────────────────────────
+// ── MATCHMAKING ENGINE ─────────────────────────
+let matchmakingQueue = [];
+const pendingMatches = new Map(); // Track matches waiting for Accept
+
 io.on('connection', (socket) => {
   console.log(`🔌 Socket connected: ${socket.id}`);
-  socket.on('disconnect', () => console.log(`🔌 Socket disconnected: ${socket.id}`));
+
+  // Listen for progress updates and broadcast them
+  socket.on('update_progress', ({ roomId, passedCount }) => {
+    socket.to(roomId).emit('opponent_progress', { passedCount });
+  });
+
+  // Listen for players wanting to fight
+  socket.on('join_queue', (userData) => {
+    console.log(`⏳ ${userData.name} joined the queue.`);
+    matchmakingQueue.push({ socket, ...userData });
+
+    // Do we have enough players for a match?
+    if (matchmakingQueue.length >= 2) {
+      const player1 = matchmakingQueue.shift();
+      const player2 = matchmakingQueue.shift();
+      const roomId = `room_${Math.random().toString(36).substring(2, 9)}`;
+
+      player1.socket.join(roomId);
+      player2.socket.join(roomId);
+
+      console.log(`⚔️ Match found! Waiting for accept in ${roomId}`);
+
+      // 1. Tell players a match is found (triggers Ready Check screen)
+      io.to(roomId).emit('match_found', {
+        roomId,
+        player1: { id: player1.socket.id, name: player1.name, elo: player1.elo, avatar: player1.avatar },
+        player2: { id: player2.socket.id, name: player2.name, elo: player2.elo, avatar: player2.avatar }
+      });
+
+      // 2. Start the 60-second AFK timer
+      pendingMatches.set(roomId, {
+        accepted: new Set(),
+        timeout: setTimeout(() => {
+          io.to(roomId).emit('match_cancelled', 'A player failed to accept.');
+          player1.socket.leave(roomId);
+          player2.socket.leave(roomId);
+          pendingMatches.delete(roomId);
+        }, 60000) // 60 seconds
+      });
+    }
+  });
+
+  // 3. Listen for players clicking "Accept"
+  socket.on('accept_match', ({ roomId }) => {
+    const match = pendingMatches.get(roomId);
+    if (match) {
+      match.accepted.add(socket.id);
+      
+      // Tell the other player we accepted (so their UI can update)
+      socket.to(roomId).emit('opponent_accepted');
+
+      // If both accepted, start the battle!
+      if (match.accepted.size === 2) {
+        clearTimeout(match.timeout); // Stop the 60s countdown
+        pendingMatches.delete(roomId);
+        io.to(roomId).emit('match_started');
+        console.log(`🚀 Match started in ${roomId}`);
+      }
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`🔌 Socket disconnected: ${socket.id}`);
+    matchmakingQueue = matchmakingQueue.filter(user => user.socket.id !== socket.id);
+  });
 });
 
 // ── Start server ───────────────────────────────────────────────────────────
