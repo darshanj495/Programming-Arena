@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { socket } from '../App';
+import { socket } from '../socket';
 
 export default function GlobalChat() {
   const [messages, setMessages] = useState([]);

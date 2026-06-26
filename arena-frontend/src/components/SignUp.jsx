@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { createUserWithEmailAndPassword, updateProfile, signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '../firebase.js';
+import { useAuth } from '../authContext';
 
-// ── Google icon (inline SVG — no extra dependency) ────────────────────────────
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 48 48" style={{ flexShrink: 0 }}>
@@ -14,14 +16,14 @@ function GoogleIcon() {
 }
 
 export default function SignUp({ onSuccess, onSwitchMode }) {
-  const [username, setUsername] = useState('');
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
+  const { handleAuthSuccess } = useAuth();
+  const [username, setUsername]               = useState('');
+  const [email, setEmail]                     = useState('');
+  const [password, setPassword]               = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading]                 = useState(false);
+  const [error, setError]                     = useState('');
 
-  // ── Email / password sign-up ──────────────────────────────────────────────
-  // TODO: replace body with Firebase createUserWithEmailAndPassword + profile update
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -30,14 +32,22 @@ export default function SignUp({ onSuccess, onSwitchMode }) {
       setError('Username must be at least 3 characters.');
       return;
     }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match. Please try again.');
+      return;
+    }
 
     setLoading(true);
     try {
-      // ── FIREBASE: import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-      // const result = await createUserWithEmailAndPassword(auth, email, password);
-      // await updateProfile(result.user, { displayName: username });
-      // onSuccess({ uid: result.user.uid, email: result.user.email, username });
-      console.log('Sign up with:', username, email, password);
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(result.user, { displayName: username });
+      // sync with backend via context using the real Firebase user object
+      await handleAuthSuccess(result.user, username);
+      onSuccess?.(); // tells App to switch to signin view
     } catch (err) {
       setError(err.message ?? 'Sign up failed. Please try again.');
     } finally {
@@ -45,22 +55,18 @@ export default function SignUp({ onSuccess, onSwitchMode }) {
     }
   };
 
-  // ── Google OAuth sign-up ──────────────────────────────────────────────────
-  // TODO: replace body with Firebase signInWithPopup + GoogleAuthProvider
-  // Note: Google sign-up skips the username step — you may want to prompt
-  // the user to pick a username after OAuth in a separate step.
   const handleGoogleAuth = async () => {
     setError('');
     setLoading(true);
     try {
-      // ── FIREBASE: import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-      // const provider = new GoogleAuthProvider();
-      // const result   = await signInWithPopup(auth, provider);
-      // onSuccess({ uid: result.user.uid, email: result.user.email,
-      //             username: result.user.displayName });
-      console.log('Google sign up');
+      const result = await signInWithPopup(auth, googleProvider);
+      // Google gives us a real Firebase user — sync then proceed
+      await handleAuthSuccess(result.user, result.user.displayName);
+      onSuccess?.();
     } catch (err) {
-      setError(err.message ?? 'Google sign up failed.');
+      if (err.code !== 'auth/popup-closed-by-user') {
+        setError(err.message ?? 'Google sign up failed.');
+      }
     } finally {
       setLoading(false);
     }
@@ -69,151 +75,88 @@ export default function SignUp({ onSuccess, onSwitchMode }) {
   return (
     <div style={{
       minHeight: '100vh', background: '#0a0a0f',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: 24,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
     }}>
       <motion.div
         initial={{ opacity: 0, y: 28, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0,  scale: 1    }}
+        animate={{ opacity: 1, y: 0,  scale: 1 }}
         transition={{ type: 'spring', stiffness: 260, damping: 22 }}
         style={{
-          width: '100%', maxWidth: 400,
-          background: '#111118', border: '1px solid #1e1e2e',
-          borderRadius: 20, padding: '40px 36px',
-          boxShadow: '0 32px 80px rgba(0,0,0,0.5)',
-          position: 'relative', overflow: 'hidden',
+          width: '100%', maxWidth: 400, background: '#111118',
+          border: '1px solid #1e1e2e', borderRadius: 20, padding: '40px 36px',
+          boxShadow: '0 32px 80px rgba(0,0,0,0.5)', position: 'relative', overflow: 'hidden',
         }}
       >
-        {/* Top accent line */}
         <div style={{
           position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
           width: 200, height: 1,
           background: 'linear-gradient(90deg, transparent, rgba(16,185,129,0.5), transparent)',
         }} />
 
-        {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <span style={{ fontSize: 22, fontWeight: 800, color: '#10b981', letterSpacing: '-0.02em' }}>
-            ◈ Arena
-          </span>
-          <p style={{ margin: '8px 0 0', fontSize: 13, color: '#94a3b8' }}>
-            Create your account
-          </p>
+          <span style={{ fontSize: 22, fontWeight: 800, color: '#10b981', letterSpacing: '-0.02em' }}>◈ Arena</span>
+          <p style={{ margin: '8px 0 0', fontSize: 13, color: '#94a3b8' }}>Create your account</p>
         </div>
 
-        {/* Error banner */}
         {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
             style={{
-              background: '#1a0808', border: '1px solid #4e1414',
-              color: '#ef4444', fontSize: 12, padding: '10px 14px',
-              borderRadius: 8, marginBottom: 20,
-            }}
-          >
+              background: '#1a0808', border: '1px solid #4e1414', color: '#ef4444',
+              fontSize: 12, padding: '10px 14px', borderRadius: 8, marginBottom: 20,
+            }}>
             {error}
           </motion.div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Field
-            label="Username"
-            type="text"
-            value={username}
-            onChange={e => setUsername(e.target.value)}
-            placeholder="your_arena_tag"
-            hint="This is your public display name in matches."
-            required
-          />
-          <Field
-            label="Email"
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            required
-          />
-          <Field
-            label="Password"
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="••••••••"
-            hint="Minimum 6 characters."
-            required
-          />
+          <Field label="Username"         type="text"     value={username}         onChange={e => setUsername(e.target.value)}         placeholder="your_arena_tag" hint="Your public display name in matches." required />
+          <Field label="Email"            type="email"    value={email}            onChange={e => setEmail(e.target.value)}            placeholder="you@example.com" required />
+          <Field label="Password"         type="password" value={password}         onChange={e => setPassword(e.target.value)}         placeholder="••••••••" hint="Minimum 6 characters." required />
+          <Field label="Confirm Password" type="password" value={confirmPassword}  onChange={e => setConfirmPassword(e.target.value)}  placeholder="••••••••" required />
 
-          <motion.button
-            type="submit"
-            disabled={loading}
-            whileHover={!loading ? { scale: 1.02 } : {}}
-            whileTap={!loading  ? { scale: 0.98 } : {}}
+          <motion.button type="submit" disabled={loading}
+            whileHover={!loading ? { scale: 1.02 } : {}} whileTap={!loading ? { scale: 0.98 } : {}}
             style={{
-              marginTop: 6,
-              width: '100%', padding: '13px 0', borderRadius: 10, border: 'none',
-              background: loading ? '#064e2a' : '#10b981',
-              color:      loading ? '#10b981' : '#000',
+              marginTop: 6, width: '100%', padding: '13px 0', borderRadius: 10, border: 'none',
+              background: loading ? '#064e2a' : '#10b981', color: loading ? '#10b981' : '#000',
               fontWeight: 700, fontSize: 14, cursor: loading ? 'not-allowed' : 'pointer',
               boxShadow: loading ? 'none' : '0 0 24px rgba(16,185,129,0.3)',
               transition: 'background 0.2s, color 0.2s, box-shadow 0.2s',
-            }}
-          >
+            }}>
             {loading ? 'Creating account...' : 'Create Account'}
           </motion.button>
         </form>
 
-        {/* Divider */}
         <Divider />
-
-        {/* Google button */}
         <GoogleButton onClick={handleGoogleAuth} loading={loading} label="Continue with Google" />
 
-        {/* Switch to Sign In */}
-        <p style={{ textAlign: 'center', marginTop: 24, fontSize: 13, color: '#475569' }}>
+        <div style={{ textAlign: 'center', marginTop: 24, fontSize: 13, color: '#475569' }}>
           Already have an account?{' '}
-          <button
-            onClick={onSwitchMode}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#10b981', fontWeight: 600, fontSize: 13, padding: 0,
-            }}
-          >
+          <button type="button" onClick={onSwitchMode}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10b981', fontWeight: 600, fontSize: 13, padding: 0 }}>
             Sign in
           </button>
-        </p>
+        </div>
       </motion.div>
     </div>
   );
 }
 
-// ── Shared sub-components (local to this file) ────────────────────────────────
-
 function Field({ label, type, value, onChange, placeholder, hint, required }) {
   const [focused, setFocused] = useState(false);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ fontSize: 11, fontWeight: 600, color: '#475569',
-        textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
         {label}
       </label>
-      <input
-        type={type} value={value} onChange={onChange}
-        placeholder={placeholder} required={required}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
+      <input type={type} value={value} onChange={onChange} placeholder={placeholder} required={required}
+        onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
         style={{
-          background: '#0a0a0f',
-          border: `1px solid ${focused ? '#10b981' : '#1e1e2e'}`,
-          borderRadius: 8, padding: '11px 14px',
-          fontSize: 13, color: '#f1f5f9',
-          outline: 'none', width: '100%', boxSizing: 'border-box',
-          transition: 'border 0.2s',
-        }}
-      />
-      {hint && (
-        <p style={{ margin: 0, fontSize: 11, color: '#2a2a3e' }}>{hint}</p>
-      )}
+          background: '#0a0a0f', border: `1px solid ${focused ? '#10b981' : '#1e1e2e'}`,
+          borderRadius: 8, padding: '11px 14px', fontSize: 13, color: '#f1f5f9',
+          outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'border 0.2s',
+        }} />
+      {hint && <p style={{ margin: 0, fontSize: 11, color: '#2a2a3e' }}>{hint}</p>}
     </div>
   );
 }
@@ -230,22 +173,17 @@ function Divider() {
 
 function GoogleButton({ onClick, loading, label }) {
   return (
-    <motion.button
-      onClick={onClick}
-      disabled={loading}
+    <motion.button type="button" onClick={onClick} disabled={loading}
       whileHover={!loading ? { scale: 1.02, background: '#16161f' } : {}}
       whileTap={!loading   ? { scale: 0.98 } : {}}
       style={{
         width: '100%', padding: '11px 0', borderRadius: 10,
         background: '#111118', border: '1px solid #2a2a3e',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-        cursor: loading ? 'not-allowed' : 'pointer',
-        fontSize: 13, fontWeight: 600, color: '#f1f5f9',
-        transition: 'background 0.2s',
-      }}
-    >
-      <GoogleIcon />
-      {label}
+        cursor: loading ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600,
+        color: '#f1f5f9', transition: 'background 0.2s',
+      }}>
+      <GoogleIcon />{label}
     </motion.button>
   );
 }

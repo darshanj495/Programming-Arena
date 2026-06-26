@@ -106,6 +106,7 @@ export default function ReadyCheck({ socket, matchData, onMatchStart }) {
   }, [socket, matchData, onMatchStart]);
 
   const handleAccept = () => {
+    console.log("🚀 Attempting to accept roomId:", matchData?.roomId);
     if (hasAccepted || !socket) return;
     socket.emit('accept_match', { roomId: matchData?.roomId });
     setHasAccepted(true);

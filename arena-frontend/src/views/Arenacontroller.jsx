@@ -4,24 +4,22 @@
 //
 // This file is kept only as a reference / alternative standalone entry point.
 // If you mount <ArenaController /> directly (e.g. for testing), it works
-// independently with its own socket connection.
+// independently using the shared socket connection.
 
-import { useState, useEffect, useRef } from 'react';
-import { io } from 'socket.io-client';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReadyCheck from '../components/ReadyCheck';
 import Battle     from '../components/Battle';
+
+import { socket } from '../socket'; 
 
 // States: IDLE → QUEUE → READY_CHECK → BATTLE
 export default function ArenaController() {
   const [appState, setAppState] = useState('IDLE');
   const [matchData, setMatchData] = useState(null);
-  const socketRef = useRef(null);
 
   useEffect(() => {
-    const socket = io('http://localhost:3000', { autoConnect: false });
-    socketRef.current = socket;
-
+    // 2. Just attach listeners to the imported socket
     socket.on('match_found', (data) => {
       setMatchData(data);
       setAppState('READY_CHECK');
@@ -42,12 +40,19 @@ export default function ArenaController() {
       console.error('Socket connection error:', err.message);
     });
 
-    return () => socket.disconnect();
+    // Cleanup listeners when unmounting
+    return () => {
+      socket.off('match_found');
+      socket.off('match_started');
+      socket.off('match_cancelled');
+      socket.off('connect_error');
+    };
   }, []);
 
   const joinQueue = () => {
-    const socket = socketRef.current;
+    // 3. Use the shared socket to connect and emit
     if (!socket.connected) socket.connect();
+    
     socket.emit('join_queue', {
       playerId: 'player_' + Math.random().toString(36).slice(2, 7),
       name: 'alex_dev', elo: 1842, avatar: 'A',
@@ -87,8 +92,9 @@ export default function ArenaController() {
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           style={{ height: '100vh', background: '#0a0a0f' }}
         >
+          {/* 4. Pass the shared socket down as a prop */}
           <ReadyCheck
-            socket={socketRef.current}
+            socket={socket} 
             matchData={matchData}
             onMatchStart={(data) => {
               if (data) setMatchData(prev => ({ ...prev, ...data }));
@@ -103,7 +109,8 @@ export default function ArenaController() {
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           style={{ height: '100vh' }}
         >
-          <Battle matchData={matchData} socket={socketRef.current} />
+          {/* 4. Pass the shared socket down as a prop */}
+          <Battle matchData={matchData} socket={socket} /> 
         </motion.div>
       )}
     </AnimatePresence>

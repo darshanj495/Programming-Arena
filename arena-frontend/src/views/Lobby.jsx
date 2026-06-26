@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { socket } from '../App';
+import { socket } from '../socket';
 import GlobalChat from '../components/GlobalChat';
 import ReadyCheck from '../components/ReadyCheck';
 
@@ -56,12 +56,31 @@ function Radar({ size = 200 }) {
   );
 }
 
+// ── Loading screen shown while playerData hydrates ────────────────────────────
+function LoadingScreen() {
+  return (
+    <div style={{
+      minHeight: '100vh', background: '#0a0a0f',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: 16,
+    }}>
+      <motion.div
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+        style={{ width: 32, height: 32, borderRadius: '50%', border: '2px solid #1e1e2e', borderTopColor: '#10b981' }}
+      />
+      <p style={{ color: '#475569', fontSize: 13, margin: 0 }}>Loading your profile...</p>
+    </div>
+  );
+}
+
 // ── Main Lobby ────────────────────────────────────────────────────────────────
-export default function Lobby({ onMatchStart }) {
+export default function Lobby({ onMatchStart, onBack, playerData, difficulty }) {
   const [matchFound, setMatchFound] = useState(false);
   const [queueCount, setQueueCount] = useState(142);
   const [searchTime, setSearchTime] = useState(0);
   const [matchData, setMatchData]   = useState(null);
+  const [queued, setQueued]         = useState(false);
 
   // Simulated queue counter
   useEffect(() => {
@@ -78,12 +97,18 @@ export default function Lobby({ onMatchStart }) {
     return () => clearInterval(iv);
   }, [matchFound]);
 
+  // Only emit join_queue once playerData is available
   useEffect(() => {
+    if (!playerData || queued) return;
+
+    setQueued(true);
     socket.emit('join_queue', {
-      name:   `Coder_${Math.floor(Math.random() * 1000)}`,
-      elo:    1450,
-      avatar: 'D',
-      rank:   'Specialist',
+      name:        playerData.username,
+      elo:         playerData.elo,
+      firebaseUid: playerData.firebaseUid,
+      difficulty:  difficulty,
+      avatar:      playerData.avatar || 'D',
+      rank:        'Specialist',
     });
 
     const handleMatchFound = (data) => {
@@ -91,11 +116,11 @@ export default function Lobby({ onMatchStart }) {
       setMatchFound(true);
     };
 
-    // If ready check times out, snap back to searching
     const handleMatchCancelled = ({ reason } = {}) => {
       alert(reason ?? 'Match cancelled — opponent did not ready up in time.');
       setMatchData(null);
       setMatchFound(false);
+      setQueued(false);
     };
 
     socket.on('match_found',     handleMatchFound);
@@ -105,7 +130,15 @@ export default function Lobby({ onMatchStart }) {
       socket.off('match_found',     handleMatchFound);
       socket.off('match_cancelled', handleMatchCancelled);
     };
-  }, []);
+  }, [playerData]);
+
+  // Leave queue and go back to landing
+  const handleBack = () => {
+    socket.emit('leave_queue');
+    onBack?.();
+  };
+
+  if (!playerData) return <LoadingScreen />;
 
   const formatTime = s =>
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
@@ -125,7 +158,34 @@ export default function Lobby({ onMatchStart }) {
     >
       <div className="grid-bg absolute inset-0 pointer-events-none" />
 
-      {/* ── Searching screen — always rendered, fades out when match found ── */}
+      {/* ── Nav bar with back button — matches leaderboard/profile style ── */}
+      <nav style={{
+        position: 'absolute', top: 0, left: 0, right: 0,
+        height: 64, background: '#111118', borderBottom: '1px solid #1e1e2e',
+        display: 'flex', alignItems: 'center', padding: '0 28px', gap: 16, zIndex: 10,
+      }}>
+        <span style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>◈</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.02em' }}>
+          Algorithmic Arena
+        </span>
+        <span style={{ fontSize: 13, color: '#2a2a3e', margin: '0 4px' }}>/</span>
+        <span style={{ fontSize: 13, color: '#475569', fontWeight: 500 }}>Matchmaking</span>
+
+        {/* Only show back button while still searching — hide once match is found */}
+        {!matchFound && (
+          <button
+            onClick={handleBack}
+            style={{
+              marginLeft: 'auto', background: '#16161f', border: '1px solid #2a2a3e',
+              color: '#94a3b8', padding: '6px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            ← Leave queue
+          </button>
+        )}
+      </nav>
+
+      {/* ── Searching screen ── */}
       <AnimatePresence>
         {!matchFound && (
           <motion.div
@@ -138,7 +198,7 @@ export default function Lobby({ onMatchStart }) {
           >
             <div style={{ textAlign: 'center' }}>
               <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#10b981', marginBottom: 8 }}>
-                Matchmaking
+                Matchmaking · {difficulty}
               </p>
               <h2 style={{ fontSize: 28, fontWeight: 700, color: '#f1f5f9', margin: 0, letterSpacing: '-0.02em' }}>
                 Searching for opponent...
@@ -178,17 +238,17 @@ export default function Lobby({ onMatchStart }) {
               borderRadius: 8, padding: '8px 16px',
             }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6', display: 'inline-block' }} />
-              <span style={{ fontSize: 13, color: '#3b82f6' }}>Your ELO: 1450</span>
+              <span style={{ fontSize: 13, color: '#3b82f6' }}>Your ELO: {playerData.elo ?? 1200}</span>
               <span style={{ color: '#1e3a5f', margin: '0 4px' }}>·</span>
               <span style={{ fontSize: 13, color: '#475569' }}>Searching ±200</span>
             </div>
 
-            {/* Dev shortcut — uses real socket.id so identity check works */}
+            {/* Dev shortcut */}
             <button
               onClick={() => {
                 setMatchData({
                   roomId:  'dev_room',
-                  player1: { id: socket.id, name: 'You',      avatar: 'Y', elo: 1450, rank: 'Specialist' },
+                  player1: { id: socket.id, name: playerData.username ?? 'You', avatar: playerData.avatar ?? 'Y', elo: playerData.elo ?? 1450, rank: 'Specialist' },
                   player2: { id: 'fake_id', name: 'Opponent', avatar: 'O', elo: 1400, rank: 'Specialist' },
                 });
                 setMatchFound(true);
@@ -209,7 +269,7 @@ export default function Lobby({ onMatchStart }) {
       {/* GlobalChat only while searching */}
       {!matchFound && <GlobalChat />}
 
-      {/* ── ReadyCheck modal — overlays on top once match is found ── */}
+      {/* ── ReadyCheck modal ── */}
       <AnimatePresence>
         {matchFound && matchData && (
           <ReadyCheck
