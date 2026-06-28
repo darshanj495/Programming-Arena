@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
+require('dotenv').config();
 
-mongoose.connect('mongodb://127.0.0.1:27017/arena')
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ Connected to MongoDB for seeding...'))
   .catch(err => { console.error('❌ Connection failed:', err); process.exit(1); });
 
@@ -23,7 +24,6 @@ const seedProblems = async () => {
   await Problem.deleteMany({});
   console.log('🗑️  Cleared existing problems.');
 
-  // ── EASY: Contains Duplicate ──
   await new Problem({
     problemId:   'contains-duplicate',
     title:       'Contains Duplicate',
@@ -34,15 +34,11 @@ const seedProblems = async () => {
       { input: 'nums = [1,2,3,4]',       output: 'false', note: 'All elements are distinct' },
       { input: 'nums = [1,1,1,3,3,4,3]', output: 'true',  note: 'Multiple duplicates' },
     ],
-    constraints: [
-      '1 ≤ nums.length ≤ 10⁵',
-      '-10⁹ ≤ nums[i] ≤ 10⁹',
-    ],
-    timeLimit:   2000,
-    memoryLimit: 256,
+    constraints: ['1 ≤ nums.length ≤ 10⁵', '-10⁹ ≤ nums[i] ≤ 10⁹'],
+    timeLimit: 2000, memoryLimit: 256,
     hiddenTestCases: [
-      { input: '[1, 2, 3, 1]',               expectedOutput: 'true'  },
-      { input: '[1, 2, 3, 4]',               expectedOutput: 'false' },
+      { input: '[1, 2, 3, 1]',                    expectedOutput: 'true'  },
+      { input: '[1, 2, 3, 4]',                    expectedOutput: 'false' },
       { input: '[1, 1, 1, 3, 3, 4, 3, 2, 4, 2]', expectedOutput: 'true'  },
     ],
     boilerplate: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
@@ -51,7 +47,6 @@ const nums = JSON.parse(lines[0]);
 console.log(containsDuplicate(nums));`,
   }).save();
 
-  // ── MEDIUM: Two Sum ──
   await new Problem({
     problemId:   'two-sum',
     title:       'Two Sum — Find all unique pairs',
@@ -62,14 +57,8 @@ console.log(containsDuplicate(nums));`,
       { input: 'nums = [-3,4,3,90], target = 0', output: '[[0,2]]',       note: '-3 + 3 = 0' },
       { input: 'nums = [3,2,4,3], target = 6',   output: '[[0,3],[1,2]]', note: 'Two valid pairs' },
     ],
-    constraints: [
-      '2 ≤ nums.length ≤ 10⁴',
-      '-10⁹ ≤ nums[i] ≤ 10⁹',
-      '-10⁹ ≤ target ≤ 10⁹',
-      'At least one valid pair exists.',
-    ],
-    timeLimit:   2000,
-    memoryLimit: 256,
+    constraints: ['2 ≤ nums.length ≤ 10⁴', '-10⁹ ≤ nums[i] ≤ 10⁹', '-10⁹ ≤ target ≤ 10⁹', 'At least one valid pair exists.'],
+    timeLimit: 2000, memoryLimit: 256,
     hiddenTestCases: [
       { input: '[2, 7, 11, 15]\n9', expectedOutput: '[[0, 1]]'         },
       { input: '[-3, 4, 3, 90]\n0', expectedOutput: '[[0, 2]]'         },
@@ -88,7 +77,6 @@ if (result) {
 }`,
   }).save();
 
-  // ── HARD: Trapping Rain Water ──
   await new Problem({
     problemId:   'trapping-rain-water',
     title:       'Trapping Rain Water',
@@ -99,13 +87,8 @@ if (result) {
       { input: 'height = [4,2,0,3,2,5]',              output: '9', note: '9 units trapped'                  },
       { input: 'height = [0,0,0,0]',                  output: '0', note: 'Flat surface — no water trapped'  },
     ],
-    constraints: [
-      'n == height.length',
-      '1 ≤ n ≤ 2 × 10⁴',
-      '0 ≤ height[i] ≤ 10⁵',
-    ],
-    timeLimit:   2500,
-    memoryLimit: 256,
+    constraints: ['n == height.length', '1 ≤ n ≤ 2 × 10⁴', '0 ≤ height[i] ≤ 10⁵'],
+    timeLimit: 2500, memoryLimit: 256,
     hiddenTestCases: [
       { input: '[0,1,0,2,1,0,1,3,2,1,2,1]', expectedOutput: '6' },
       { input: '[4,2,0,3,2,5]',              expectedOutput: '9' },

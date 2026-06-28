@@ -8,7 +8,6 @@ const axios = require('axios');
 const Problem = require('./models/Problem');
 const User = require('./models/User');
 const rateLimit = require('express-rate-limit');
-require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
 
 const app = express();
 app.use(cors());
@@ -354,7 +353,13 @@ io.on('connection', (socket) => {
     resolveMatch(roomId);
   });
 
-  // 5. Rage Quit & Cleanup Handler
+  // 5. Global Lobby Chat
+  socket.on('send_chat', (msg) => {
+    // Broadcast to everyone including sender
+    io.emit('receive_chat', msg);
+  });
+
+  // 6. Rage Quit & Cleanup Handler
   socket.on('disconnect', () => {
     console.log(`🔌 Socket disconnected: ${socket.id}`);
 
