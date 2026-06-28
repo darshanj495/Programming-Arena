@@ -4,18 +4,31 @@ import { auth } from './firebase';
 
 const AuthContext = createContext();
 
-async function syncWithBackend(firebaseUser, usernameOverride) {
-  const response = await fetch('https://programming-arena-7hr2.onrender.com/api/users/sync', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      firebaseUid: firebaseUser.uid,
-      email:       firebaseUser.email,
-      username:    usernameOverride ?? firebaseUser.displayName ?? 'Arena Player',
-    }),
-  });
-  if (!response.ok) throw new Error('Backend sync failed');
-  return response.json();
+const BACKEND = 'https://programming-arena-7hr2.onrender.com';
+
+// Retries up to 3 times with 3s delay to handle Render cold starts
+async function syncWithBackend(firebaseUser, usernameOverride, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(`${BACKEND}/api/users/sync`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firebaseUid: firebaseUser.uid,
+          email:       firebaseUser.email,
+          username:    usernameOverride ?? firebaseUser.displayName ?? 'Arena Player',
+        }),
+      });
+      if (!response.ok) throw new Error('Backend sync failed');
+      return response.json();
+    } catch (err) {
+      if (i < retries - 1) {
+        await new Promise(res => setTimeout(res, 3000)); // wait 3s before retry
+      } else {
+        throw err;
+      }
+    }
+  }
 }
 
 export function AuthProvider({ children }) {
