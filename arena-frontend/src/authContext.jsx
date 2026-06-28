@@ -5,7 +5,7 @@ import { auth } from './firebase';
 const AuthContext = createContext();
 
 async function syncWithBackend(firebaseUser, usernameOverride) {
-  const response = await fetch('http://localhost:3000/api/users/sync', {
+  const response = await fetch('https://programming-arena-7hr2.onrender.com/api/users/sync', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

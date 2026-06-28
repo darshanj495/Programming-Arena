@@ -56,7 +56,6 @@ function Radar({ size = 200 }) {
   );
 }
 
-// ── Loading screen shown while playerData hydrates ────────────────────────────
 function LoadingScreen() {
   return (
     <div style={{
@@ -74,7 +73,6 @@ function LoadingScreen() {
   );
 }
 
-// ── Main Lobby ────────────────────────────────────────────────────────────────
 export default function Lobby({ onMatchStart, onBack, playerData, difficulty }) {
   const [matchFound, setMatchFound] = useState(false);
   const [queueCount, setQueueCount] = useState(142);
@@ -82,7 +80,6 @@ export default function Lobby({ onMatchStart, onBack, playerData, difficulty }) 
   const [matchData, setMatchData]   = useState(null);
   const [queued, setQueued]         = useState(false);
 
-  // Simulated queue counter
   useEffect(() => {
     const iv = setInterval(() => {
       setQueueCount(n => n + (Math.random() > 0.5 ? 1 : -1));
@@ -90,14 +87,12 @@ export default function Lobby({ onMatchStart, onBack, playerData, difficulty }) 
     return () => clearInterval(iv);
   }, []);
 
-  // Search timer — pauses once matched
   useEffect(() => {
     if (matchFound) return;
     const iv = setInterval(() => setSearchTime(t => t + 1), 1000);
     return () => clearInterval(iv);
   }, [matchFound]);
 
-  // Only emit join_queue once playerData is available
   useEffect(() => {
     if (!playerData || queued) return;
 
@@ -116,7 +111,9 @@ export default function Lobby({ onMatchStart, onBack, playerData, difficulty }) 
       setMatchFound(true);
     };
 
-    const handleMatchCancelled = ({ reason } = {}) => {
+    // FIX: server emits a bare string, not { reason } — handle both just in case
+    const handleMatchCancelled = (payload) => {
+      const reason = typeof payload === 'string' ? payload : payload?.reason;
       alert(reason ?? 'Match cancelled — opponent did not ready up in time.');
       setMatchData(null);
       setMatchFound(false);
@@ -132,7 +129,6 @@ export default function Lobby({ onMatchStart, onBack, playerData, difficulty }) 
     };
   }, [playerData]);
 
-  // Leave queue and go back to landing
   const handleBack = () => {
     socket.emit('leave_queue');
     onBack?.();
@@ -158,7 +154,6 @@ export default function Lobby({ onMatchStart, onBack, playerData, difficulty }) 
     >
       <div className="grid-bg absolute inset-0 pointer-events-none" />
 
-      {/* ── Nav bar with back button — matches leaderboard/profile style ── */}
       <nav style={{
         position: 'absolute', top: 0, left: 0, right: 0,
         height: 64, background: '#111118', borderBottom: '1px solid #1e1e2e',
@@ -171,7 +166,6 @@ export default function Lobby({ onMatchStart, onBack, playerData, difficulty }) 
         <span style={{ fontSize: 13, color: '#2a2a3e', margin: '0 4px' }}>/</span>
         <span style={{ fontSize: 13, color: '#475569', fontWeight: 500 }}>Matchmaking</span>
 
-        {/* Only show back button while still searching — hide once match is found */}
         {!matchFound && (
           <button
             onClick={handleBack}
@@ -185,7 +179,6 @@ export default function Lobby({ onMatchStart, onBack, playerData, difficulty }) 
         )}
       </nav>
 
-      {/* ── Searching screen ── */}
       <AnimatePresence>
         {!matchFound && (
           <motion.div
@@ -243,13 +236,25 @@ export default function Lobby({ onMatchStart, onBack, playerData, difficulty }) 
               <span style={{ fontSize: 13, color: '#475569' }}>Searching ±200</span>
             </div>
 
-            {/* Dev shortcut */}
+            {/* FIX: dev simulate now includes a proper problem object so Battle never goes blank */}
             <button
               onClick={() => {
                 setMatchData({
                   roomId:  'dev_room',
-                  player1: { id: socket.id, name: playerData.username ?? 'You', avatar: playerData.avatar ?? 'Y', elo: playerData.elo ?? 1450, rank: 'Specialist' },
-                  player2: { id: 'fake_id', name: 'Opponent', avatar: 'O', elo: 1400, rank: 'Specialist' },
+                  problem: {
+                    problemId:   'two-sum',
+                    title:       'Two Sum',
+                    difficulty:  difficulty,
+                    description: 'Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to target.\n\nEach input has exactly one solution. You may not use the same element twice.',
+                    examples:    [
+                      { input: 'nums = [2,7,11,15], target = 9', output: '[0,1]', note: 'nums[0] + nums[1] = 9' },
+                      { input: 'nums = [3,2,4], target = 6',     output: '[1,2]', note: '' },
+                    ],
+                    constraints: ['2 ≤ nums.length ≤ 10⁴', '-10⁹ ≤ nums[i] ≤ 10⁹', 'Only one valid answer exists.'],
+                    total: 3,
+                  },
+                  player1: { id: socket.id, name: playerData.username ?? 'You',      avatar: playerData.avatar ?? 'Y', elo: playerData.elo ?? 1450 },
+                  player2: { id: 'fake_id', name: 'Opponent', avatar: 'O', elo: 1400 },
                 });
                 setMatchFound(true);
               }}
@@ -266,10 +271,8 @@ export default function Lobby({ onMatchStart, onBack, playerData, difficulty }) 
         )}
       </AnimatePresence>
 
-      {/* GlobalChat only while searching */}
       {!matchFound && <GlobalChat />}
 
-      {/* ── ReadyCheck modal ── */}
       <AnimatePresence>
         {matchFound && matchData && (
           <ReadyCheck

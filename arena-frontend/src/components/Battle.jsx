@@ -3,29 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Editor from '@monaco-editor/react';
 import MatchResult from './MatchResult';
 
-const PROBLEM = {
-  title:       'Two Sum — Find all unique pairs',
-  difficulty:  'Medium',
-  tags:        ['Array', 'Hash Map'],
-  timeLimit:   '2000ms',
-  memoryLimit: '256MB',
-  description: `Given an array of integers \`nums\` and an integer \`target\`, return **all unique index pairs** \`[i, j]\` such that \`nums[i] + nums[j] == target\` and \`i != j\`.
-
-Each input will have **at least one solution**, and you may return the pairs in any order. Pairs are considered unique by their index combination.`,
-  examples: [
-    { input: 'nums = [2, 7, 11, 15], target = 9', output: '[[0, 1]]', note: 'nums[0] + nums[1] = 2 + 7 = 9' },
-    { input: 'nums = [3, 2, 4], target = 6',       output: '[[1, 2]]', note: '' },
-  ],
-  constraints: [
-    '2 ≤ nums.length ≤ 10⁴',
-    '-10⁹ ≤ nums[i] ≤ 10⁹',
-    '-10⁹ ≤ target ≤ 10⁹',
-    'At least one valid pair exists.',
-  ],
-  total: 3, // total test cases — keep in sync with DB
-};
-
 const LANGUAGES = ['JavaScript', 'Python', 'C++', 'Java', 'Go', 'Rust'];
+
+// Fallback shown only in dev/simulate mode when no real problem is provided
+const DEV_PROBLEM = {
+  problemId:   'two-sum',
+  title:       'Two Sum',
+  difficulty:  'Easy',
+  description: 'Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to target.',
+  examples:    [{ input: 'nums = [2,7,11,15], target = 9', output: '[0,1]', note: 'nums[0] + nums[1] = 9' }],
+  constraints: ['2 ≤ nums.length ≤ 10⁴', '-10⁹ ≤ nums[i] ≤ 10⁹'],
+  total:       3,
+};
 
 function LiveDot({ color = '#10b981' }) {
   return (
@@ -40,7 +29,7 @@ function LiveDot({ color = '#10b981' }) {
   );
 }
 
-function ArenaHeader({ player, opponent, timeString, myScore = 0, opponentScore = 0 }) {
+function ArenaHeader({ player, opponent, timeString, myScore = 0, opponentScore = 0, total = 3 }) {
   return (
     <header style={{
       height: 64, background: '#111118', borderBottom: '1px solid #1e1e2e',
@@ -90,7 +79,7 @@ function ArenaHeader({ player, opponent, timeString, myScore = 0, opponentScore 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>
           <span style={{ fontSize: 10, fontWeight: 700, color: '#475569', letterSpacing: '0.05em' }}>YOUR TESTS</span>
           <div style={{ display: 'flex', gap: 4 }}>
-            {[1, 2, 3].map(n => (
+            {Array.from({ length: total }, (_, i) => i + 1).map(n => (
               <div key={n} style={{
                 width: 24, height: 6, borderRadius: 4, transition: 'all 0.3s ease',
                 background: myScore >= n ? '#10b981' : '#1e1e2e',
@@ -112,7 +101,7 @@ function ArenaHeader({ player, opponent, timeString, myScore = 0, opponentScore 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 5 }}>
           <span style={{ fontSize: 10, fontWeight: 700, color: '#475569', letterSpacing: '0.05em' }}>OPPONENT</span>
           <div style={{ display: 'flex', gap: 4 }}>
-            {[1, 2, 3].map(n => (
+            {Array.from({ length: total }, (_, i) => i + 1).map(n => (
               <div key={n} style={{
                 width: 24, height: 6, borderRadius: 4, transition: 'all 0.3s ease',
                 background: opponentScore >= n ? '#ef4444' : '#1e1e2e',
@@ -133,6 +122,8 @@ function ProblemPane({ problem }) {
     Hard:   { bg: '#1a0808', border: '#4e1414', color: '#ef4444' },
   };
   const diff = diffMap[problem.difficulty] ?? diffMap.Medium;
+  const tags      = problem.tags      ?? [];
+  const timeLimit = problem.timeLimit ?? '2000ms';
 
   return (
     <div style={{ height: '100%', overflowY: 'auto', background: '#0e0e16', borderRight: '1px solid #1e1e2e', display: 'flex', flexDirection: 'column' }}>
@@ -152,14 +143,14 @@ function ProblemPane({ problem }) {
           {problem.title}
         </h1>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
-          {problem.tags.map(t => (
+          {tags.map(t => (
             <span key={t} style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#16161f', border: '1px solid #2a2a3e', color: '#94a3b8', padding: '2px 8px', borderRadius: 4 }}>{t}</span>
           ))}
-          <span style={{ fontSize: 10, color: '#475569', background: '#16161f', border: '1px solid #1e1e2e', padding: '2px 8px', borderRadius: 4 }}>⏱ {problem.timeLimit}</span>
+          <span style={{ fontSize: 10, color: '#475569', background: '#16161f', border: '1px solid #1e1e2e', padding: '2px 8px', borderRadius: 4 }}>⏱ {timeLimit}</span>
         </div>
 
         <div style={{ fontSize: 13.5, color: '#94a3b8', lineHeight: 1.75, marginBottom: 24 }}>
-          {problem.description.split('\n\n').map((para, i) => (
+          {(problem.description ?? '').split('\n\n').map((para, i) => (
             <p key={i} style={{ margin: '0 0 12px' }} dangerouslySetInnerHTML={{
               __html: para
                 .replace(/`([^`]+)`/g, `<code style="font-family:monospace;background:#1c1c28;color:#10b981;padding:1px 5px;border-radius:3px;font-size:12px">$1</code>`)
@@ -168,27 +159,35 @@ function ProblemPane({ problem }) {
           ))}
         </div>
 
-        <h3 style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px' }}>Examples</h3>
-        {problem.examples.map((ex, i) => (
-          <div key={i} style={{ background: '#111118', border: '1px solid #1e1e2e', borderRadius: 10, padding: '14px 16px', marginBottom: 10 }}>
-            <div style={{ marginBottom: 8 }}>
-              <span style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Input</span>
-              <pre style={{ margin: '4px 0 0', fontFamily: 'monospace', fontSize: 12, color: '#94a3b8', whiteSpace: 'pre-wrap' }}>{ex.input}</pre>
-            </div>
-            <div>
-              <span style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Output</span>
-              <pre style={{ margin: '4px 0 0', fontFamily: 'monospace', fontSize: 12, color: '#10b981', whiteSpace: 'pre-wrap' }}>{ex.output}</pre>
-            </div>
-            {ex.note && <p style={{ margin: '8px 0 0', fontSize: 11, color: '#475569', fontStyle: 'italic' }}>{ex.note}</p>}
-          </div>
-        ))}
+        {problem.examples?.length > 0 && (
+          <>
+            <h3 style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px' }}>Examples</h3>
+            {problem.examples.map((ex, i) => (
+              <div key={i} style={{ background: '#111118', border: '1px solid #1e1e2e', borderRadius: 10, padding: '14px 16px', marginBottom: 10 }}>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Input</span>
+                  <pre style={{ margin: '4px 0 0', fontFamily: 'monospace', fontSize: 12, color: '#94a3b8', whiteSpace: 'pre-wrap' }}>{ex.input}</pre>
+                </div>
+                <div>
+                  <span style={{ fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Output</span>
+                  <pre style={{ margin: '4px 0 0', fontFamily: 'monospace', fontSize: 12, color: '#10b981', whiteSpace: 'pre-wrap' }}>{ex.output}</pre>
+                </div>
+                {ex.note && <p style={{ margin: '8px 0 0', fontSize: 11, color: '#475569', fontStyle: 'italic' }}>{ex.note}</p>}
+              </div>
+            ))}
+          </>
+        )}
 
-        <h3 style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '20px 0 10px' }}>Constraints</h3>
-        <ul style={{ padding: '0 0 0 16px', margin: 0 }}>
-          {problem.constraints.map((c, i) => (
-            <li key={i} style={{ fontSize: 12, color: '#475569', lineHeight: 1.8, fontFamily: 'monospace' }}>{c}</li>
-          ))}
-        </ul>
+        {problem.constraints?.length > 0 && (
+          <>
+            <h3 style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '20px 0 10px' }}>Constraints</h3>
+            <ul style={{ padding: '0 0 0 16px', margin: 0 }}>
+              {problem.constraints.map((c, i) => (
+                <li key={i} style={{ fontSize: 12, color: '#475569', lineHeight: 1.8, fontFamily: 'monospace' }}>{c}</li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
     </div>
   );
@@ -321,7 +320,11 @@ export default function Battle({ matchData, socket, playerData, onReturn }) {
   const [timeLeft, setTimeLeft]     = useState(600);
   const [opponentScore, setOpponentScore] = useState(0);
   const [myScore, setMyScore]             = useState(0);
-  const [matchResult, setMatchResult]     = useState(null); // null until match ends
+  const [matchResult, setMatchResult]     = useState(null);
+
+  // Use real problem from server, fall back to DEV_PROBLEM so the UI never goes blank
+  const problem = matchData?.problem ?? DEV_PROBLEM;
+  const total   = problem?.total ?? 3;
 
   // Countdown timer
   useEffect(() => {
@@ -342,15 +345,15 @@ export default function Battle({ matchData, socket, playerData, onReturn }) {
   useEffect(() => {
     if (!socket) return;
     socket.on('match_finished', (data) => {
-      // Attach the disconnect reason so MatchResult can render the right message
+      console.log('Received match_finished:', data);
       setMatchResult(data);
     });
     return () => socket.off('match_finished');
   }, [socket]);
 
   const amIPlayer1 = matchData?.player1?.id === socket?.id;
-  const defaultPlayer   = { name: 'alex_dev', avatar: 'A', elo: 1842 };
-  const defaultOpponent = { name: 'sk_coder', avatar: 'S', elo: 1790 };
+  const defaultPlayer   = { name: 'You',      avatar: 'Y', elo: '—' };
+  const defaultOpponent = { name: 'Opponent',  avatar: 'O', elo: '—' };
   const player   = (amIPlayer1 ? matchData?.player1 : matchData?.player2) ?? defaultPlayer;
   const opponent = (amIPlayer1 ? matchData?.player2 : matchData?.player1) ?? defaultOpponent;
 
@@ -358,22 +361,21 @@ export default function Battle({ matchData, socket, playerData, onReturn }) {
     setSubmitting(true);
     setOutput(null);
     try {
-      const response = await fetch('http://localhost:3000/api/execute', {
+      const response = await fetch('https://programming-arena-7hr2.onrender.com/api/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ problemId: 'two-sum', language: language.toLowerCase(), code }),
+        body: JSON.stringify({ problemId: problem.problemId, language: language.toLowerCase(), code }),
       });
       const data = await response.json();
 
       setMyScore(data.passed);
 
-      // Emit progress — include firebaseUid and total so server can resolve
       if (socket && matchData?.roomId) {
         socket.emit('update_progress', {
           roomId:      matchData.roomId,
           passedCount: data.passed,
           firebaseUid: playerData?.firebaseUid,
-          total:       PROBLEM.total,
+          total,
         });
       }
 
@@ -387,7 +389,7 @@ export default function Battle({ matchData, socket, playerData, onReturn }) {
       setOutput({ status: data.status, passed: data.passed, total: data.total, time: `${data.results[0]?.cpuTime || 0}s`, memory: `${data.results[0]?.memory || 0} KB`, lines: formattedLines });
     } catch (error) {
       console.error('API Error:', error);
-      setOutput({ status: 'Error', passed: 0, total: 3, time: '0s', memory: '0 KB', lines: [{ type: 'error', text: 'Server connection failed. Is your backend running?' }] });
+      setOutput({ status: 'Error', passed: 0, total, time: '0s', memory: '0 KB', lines: [{ type: 'error', text: 'Server connection failed. Is your backend running?' }] });
     } finally {
       setSubmitting(false);
     }
@@ -395,21 +397,27 @@ export default function Battle({ matchData, socket, playerData, onReturn }) {
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#0a0a0f', overflow: 'hidden' }}>
-      <ArenaHeader player={player} opponent={opponent} timeString={formatTime(timeLeft)} myScore={myScore} opponentScore={opponentScore} />
+      <ArenaHeader
+        player={player}
+        opponent={opponent}
+        timeString={formatTime(timeLeft)}
+        myScore={myScore}
+        opponentScore={opponentScore}
+        total={total}
+      />
 
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '340px 1fr', overflow: 'hidden' }}>
-        <ProblemPane problem={PROBLEM} />
+        <ProblemPane problem={problem} />
         <div style={{ display: 'grid', gridTemplateRows: '1fr 220px', overflow: 'hidden' }}>
           <EditorPane onSubmit={handleSubmit} submitting={submitting} />
           <TerminalPane output={output} running={submitting} />
         </div>
       </div>
 
-      {/* Result overlay — shown when server emits match_finished */}
       {matchResult && (
         <MatchResult
           result={matchResult.result}
-          reason={matchResult.reason}           
+          reason={matchResult.reason}
           myScore={matchResult.myScore}
           opponentScore={matchResult.opponentScore}
           eloChange={matchResult.eloChange}
