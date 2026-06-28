@@ -47,7 +47,9 @@ app.post('/api/execute', executeLimiter, async (req, res) => {
     const runtime = languageMap[language];
     if (!runtime) return res.status(400).json({ error: `Unsupported language: ${language}` });
 
-    const boilerplate = (problem.boilerplates && problem.boilerplates[language]) ? problem.boilerplates[language] : (problem.boilerplate || '');
+    // Normalize language key: 'c++' -> 'cpp'
+    const langKey = language === 'c++' ? 'cpp' : language;
+    const boilerplate = (problem.boilerplates && problem.boilerplates[langKey]) ? problem.boilerplates[langKey] : (problem.boilerplate || '');
     const bundledCode = `${code}\n\n${boilerplate}`;
     const results = [];
     let passedCount = 0;
