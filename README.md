@@ -126,11 +126,11 @@ Given an elevation map, compute how much rainwater it can trap. Tests two-pointe
 │                    Server (Render)                      │
 │            Node.js + Express + Socket.IO                │
 │                                                         │
-│  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  │
-│  │ Matchmaking │  │  Game State  │  │  REST APIs    │  │
-│  │   Queues    │  │  ELO Engine  │  │  /execute     │  │
-│  │ Easy/Med/Hd │  │  Room Scores │  │  /leaderboard │  │
-│  └─────────────┘  └──────────────┘  └───────┬───────┘  │
+│  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐   │
+│  │ Matchmaking │  │  Game State  │  │  REST APIs    │   │
+│  │   Queues    │  │  ELO Engine  │  │  /execute     │   │
+│  │ Easy/Med/Hd │  │  Room Scores │  │  /leaderboard │   │
+│  └─────────────┘  └──────────────┘  └───────┬───────┘   │
 └──────────────────────────────────────────────┼──────────┘
                         │                      │
          ┌──────────────▼──────┐    ┌──────────▼──────────┐
