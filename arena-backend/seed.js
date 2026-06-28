@@ -15,7 +15,8 @@ const problemSchema = new mongoose.Schema({
   timeLimit:       Number,
   memoryLimit:     Number,
   hiddenTestCases: Array,
-  boilerplate:     String,
+  boilerplates:    mongoose.Schema.Types.Mixed, // { javascript, python, cpp, java }
+  boilerplate:     String, // legacy fallback
 });
 
 const Problem = mongoose.models.Problem || mongoose.model('Problem', problemSchema);
@@ -24,6 +25,7 @@ const seedProblems = async () => {
   await Problem.deleteMany({});
   console.log('🗑️  Cleared existing problems.');
 
+  // ── EASY: Contains Duplicate ──
   await new Problem({
     problemId:   'contains-duplicate',
     title:       'Contains Duplicate',
@@ -41,12 +43,46 @@ const seedProblems = async () => {
       { input: '[1, 2, 3, 4]',                    expectedOutput: 'false' },
       { input: '[1, 1, 1, 3, 3, 4, 3, 2, 4, 2]', expectedOutput: 'true'  },
     ],
-    boilerplate: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+    boilerplates: {
+      javascript: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
 const lines = require('fs').readFileSync('/dev/stdin', 'utf-8').trim().split('\\n');
 const nums = JSON.parse(lines[0]);
 console.log(containsDuplicate(nums));`,
+
+      python: `# ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+import sys, json
+nums = json.loads(sys.stdin.readline())
+print(str(containsDuplicate(nums)).lower())`,
+
+      cpp: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+int main() {
+    std::string line;
+    std::getline(std::cin, line);
+    std::vector<int> nums;
+    line = line.substr(1, line.size() - 2);
+    std::stringstream ss(line);
+    std::string token;
+    while (std::getline(ss, token, ',')) {
+        nums.push_back(std::stoi(token));
+    }
+    std::cout << (containsDuplicate(nums) ? "true" : "false") << std::endl;
+    return 0;
+}`,
+
+      java: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+public static void main(String[] args) throws Exception {
+    java.util.Scanner sc = new java.util.Scanner(System.in);
+    String line = sc.nextLine().trim();
+    line = line.substring(1, line.length() - 1);
+    String[] parts = line.split(",");
+    int[] nums = new int[parts.length];
+    for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i].trim());
+    System.out.println(new Solution().containsDuplicate(nums));
+}`,
+    },
   }).save();
 
+  // ── MEDIUM: Two Sum ──
   await new Problem({
     problemId:   'two-sum',
     title:       'Two Sum — Find all unique pairs',
@@ -64,7 +100,8 @@ console.log(containsDuplicate(nums));`,
       { input: '[-3, 4, 3, 90]\n0', expectedOutput: '[[0, 2]]'         },
       { input: '[3, 2, 4, 3]\n6',   expectedOutput: '[[0, 3], [1, 2]]' },
     ],
-    boilerplate: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+    boilerplates: {
+      javascript: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
 const lines = require('fs').readFileSync('/dev/stdin', 'utf-8').trim().split('\\n');
 const nums   = JSON.parse(lines[0]);
 const target = parseInt(lines[1]);
@@ -75,8 +112,59 @@ if (result) {
 } else {
   console.log('[]');
 }`,
+
+      python: `# ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+import sys, json
+data = sys.stdin.read().strip().split('\\n')
+nums = json.loads(data[0])
+target = int(data[1])
+result = twoSum(nums, target)
+result.sort()
+print(json.dumps(result).replace(',', ', '))`,
+
+      cpp: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+int main() {
+    std::string line;
+    std::getline(std::cin, line);
+    std::vector<int> nums;
+    line = line.substr(1, line.size() - 2);
+    std::stringstream ss(line);
+    std::string token;
+    while (std::getline(ss, token, ',')) nums.push_back(std::stoi(token));
+    int target; std::cin >> target;
+    auto result = twoSum(nums, target);
+    std::sort(result.begin(), result.end());
+    std::cout << "[";
+    for (int i = 0; i < result.size(); i++) {
+        std::cout << "[" << result[i][0] << ", " << result[i][1] << "]";
+        if (i < result.size()-1) std::cout << ", ";
+    }
+    std::cout << "]" << std::endl;
+    return 0;
+}`,
+
+      java: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+public static void main(String[] args) throws Exception {
+    java.util.Scanner sc = new java.util.Scanner(System.in);
+    String line = sc.nextLine().trim();
+    line = line.substring(1, line.length()-1);
+    String[] parts = line.split(",");
+    int[] nums = new int[parts.length];
+    for (int i = 0; i < parts.length; i++) nums[i] = Integer.parseInt(parts[i].trim());
+    int target = Integer.parseInt(sc.nextLine().trim());
+    int[][] result = new Solution().twoSum(nums, target);
+    StringBuilder sb = new StringBuilder("[");
+    for (int i = 0; i < result.length; i++) {
+        sb.append("[").append(result[i][0]).append(", ").append(result[i][1]).append("]");
+        if (i < result.length-1) sb.append(", ");
+    }
+    sb.append("]");
+    System.out.println(sb);
+}`,
+    },
   }).save();
 
+  // ── HARD: Trapping Rain Water ──
   await new Problem({
     problemId:   'trapping-rain-water',
     title:       'Trapping Rain Water',
@@ -94,10 +182,41 @@ if (result) {
       { input: '[4,2,0,3,2,5]',              expectedOutput: '9' },
       { input: '[0,0,0,0]',                  expectedOutput: '0' },
     ],
-    boilerplate: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+    boilerplates: {
+      javascript: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
 const lines = require('fs').readFileSync('/dev/stdin', 'utf-8').trim().split('\\n');
 const height = JSON.parse(lines[0]);
 console.log(trap(height));`,
+
+      python: `# ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+import sys, json
+height = json.loads(sys.stdin.readline())
+print(trap(height))`,
+
+      cpp: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+int main() {
+    std::string line;
+    std::getline(std::cin, line);
+    std::vector<int> height;
+    line = line.substr(1, line.size() - 2);
+    std::stringstream ss(line);
+    std::string token;
+    while (std::getline(ss, token, ',')) height.push_back(std::stoi(token));
+    std::cout << trap(height) << std::endl;
+    return 0;
+}`,
+
+      java: `// ⚠️ DO NOT MODIFY BELOW THIS LINE ⚠️
+public static void main(String[] args) throws Exception {
+    java.util.Scanner sc = new java.util.Scanner(System.in);
+    String line = sc.nextLine().trim();
+    line = line.substring(1, line.length()-1);
+    String[] parts = line.split(",");
+    int[] height = new int[parts.length];
+    for (int i = 0; i < parts.length; i++) height[i] = Integer.parseInt(parts[i].trim());
+    System.out.println(new Solution().trap(height));
+}`,
+    },
   }).save();
 
   console.log('✅ Seeded 3 problems: Easy, Medium, Hard');
