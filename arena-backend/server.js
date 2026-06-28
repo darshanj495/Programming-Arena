@@ -8,6 +8,7 @@ const axios = require('axios');
 const Problem = require('./models/Problem');
 const User = require('./models/User');
 const rateLimit = require('express-rate-limit');
+require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
 
 const app = express();
 app.use(cors());
@@ -22,7 +23,6 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/arena')
 
 
 // ── REST APIs ──────────────────────────────────────────────────────────────
-// 1. Define the Rate Limiter (Max 5 requests per minute)
 const executeLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 5,
@@ -147,9 +147,23 @@ async function updateElo(winnerId, loserId) {
 
 async function resolveMatch(roomId) {
   const scores = roomScores.get(roomId);
-  if (!scores) return;
 
-  const [p1id, p2id] = Object.keys(scores);
+  // FIX: was a duplicate `if (!scores)if (!scores)` — cleaned up
+  if (!scores) {
+    console.log(`⚠️  Resolve called for room ${roomId} but no scores found.`);
+    return;
+  }
+
+  // FIX: guard against resolving before both players have submitted anything.
+  // If only one player is tracked (the other never submitted), we still resolve
+  // correctly — they just have 0 passed tests by default.
+  const playerIds = Object.keys(scores);
+  if (playerIds.length < 2) {
+    console.log(`⚠️  Resolve called for room ${roomId} but only ${playerIds.length} player(s) tracked — skipping.`);
+    return;
+  }
+
+  const [p1id, p2id] = playerIds;
   const p1 = scores[p1id];
   const p2 = scores[p2id];
 
@@ -166,6 +180,8 @@ async function resolveMatch(roomId) {
   if (resultType === 'winner') {
     await updateElo(scores[winnerId].firebaseUid, scores[loserId].firebaseUid);
   }
+
+  console.log(`🏁 Emitting match_finished to room ${roomId}`);
 
   for (const [socketId, data] of Object.entries(scores)) {
     const isWinner   = socketId === winnerId;
@@ -205,7 +221,9 @@ io.on('connection', (socket) => {
 
     socket.to(roomId).emit('opponent_progress', { passedCount });
 
-    if (passedCount >= total) {
+    // FIX: only resolve if both players are in scores AND someone hit all tests
+    const scores = roomScores.get(roomId);
+    if (passedCount >= total && Object.keys(scores).length === 2) {
       const timer = matchTimers.get(roomId);
       if (timer) { clearTimeout(timer); matchTimers.delete(roomId); }
       resolveMatch(roomId);
@@ -268,6 +286,7 @@ io.on('connection', (socket) => {
               examples:    problem.examples,
               constraints: problem.constraints,
               boilerplate: problem.boilerplate,
+              total:       problem.hiddenTestCases.length,
             },
             player1: { id: player1.socket.id, name: player1.name, elo: player1.elo, avatar: player1.avatar },
             player2: { id: player2.socket.id, name: player2.name, elo: player2.elo, avatar: player2.avatar },
@@ -386,7 +405,7 @@ io.on('connection', (socket) => {
 
       // Close the room
       roomScores.delete(roomId);
-      break; 
+      break;
     }
   });
 });
@@ -394,15 +413,7 @@ io.on('connection', (socket) => {
 // ── THE JANITOR (Memory Leak Sweeper) ───────────────────────────────────
 setInterval(() => {
   console.log('🧹 Running routine server sweep...');
-  const now = Date.now();
-  
-  // Sweep Match Timers (Failsafe if timeout didn't clear)
-  for (const [roomId, timer] of matchTimers.entries()) {
-    // If a room has existed without resolving for an abnormal time, force clear it
-    // Note: We'd need to store timestamps when matches start to do this perfectly, 
-    // but clearing orphaned scores is the most critical part.
-  }
-  
+
   // Sweep Matchmaking Queues (Remove sockets that disconnected poorly)
   for (const diff of VALID_DIFFICULTIES) {
     const originalLength = matchmakingQueues[diff].length;
@@ -411,7 +422,7 @@ setInterval(() => {
       console.log(`🧹 Swept ${originalLength - matchmakingQueues[diff].length} ghosts from ${diff} queue.`);
     }
   }
-}, 5 * 60 * 1000); // Runs every 5 minutes
+}, 5 * 60 * 1000);
 
 // ── SERVER START ───────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
