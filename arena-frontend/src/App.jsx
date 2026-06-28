@@ -10,14 +10,29 @@ import { socket } from './socket';
 import Leaderboard from './views/Leaderboard';
 import Profile from './views/Profile';
 
+// Safe views to restore on refresh (never restore lobby/battle since socket state is lost)
+const RESTORABLE = ['landing', 'leaderboard', 'profile'];
+
 export default function App() {
   const { user, playerData, handleSignOut } = useAuth();
 
-  const [view, setView]                 = useState('landing');
-  const [authMode, setAuthMode]         = useState('signin');
-  const [activeMatch, setActiveMatch]   = useState(null);
-  const [pendingQueue, setPendingQueue] = useState(false);
+  const [view, setView] = useState(() => {
+    const saved = sessionStorage.getItem('arena_view');
+    return RESTORABLE.includes(saved) ? saved : 'landing';
+  });
+  const [authMode, setAuthMode]             = useState('signin');
+  const [activeMatch, setActiveMatch]       = useState(null);
+  const [pendingQueue, setPendingQueue]     = useState(false);
   const [selectedDifficulty, setSelectedDifficulty] = useState('Easy');
+
+  // Persist view to sessionStorage whenever it changes
+  useEffect(() => {
+    if (RESTORABLE.includes(view)) {
+      sessionStorage.setItem('arena_view', view);
+    } else {
+      sessionStorage.removeItem('arena_view');
+    }
+  }, [view]);
 
   useEffect(() => {
     if (!user && view !== 'landing' && view !== 'auth') {
@@ -63,9 +78,6 @@ export default function App() {
     setView('landing');
   };
 
-  // Render Battle outside AnimatePresence entirely — no animation,
-  // no position:absolute, no exit animation that could swallow the view.
-  // Battle is full-screen by itself (height:100vh) so it doesn't need any wrapper.
   if (view === 'battle') {
     return (
       <Battle

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import axios from 'axios';
 
+const BACKEND = 'https://programming-arena-7hr2.onrender.com';
+
 const MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
 
 const rowVariants = {
@@ -57,7 +59,7 @@ export default function Leaderboard({ playerData, onBack }) {
 
   useEffect(() => {
     const uid = playerData?.firebaseUid;
-    axios.get(`http://localhost:3000/api/leaderboard${uid ? `?firebaseUid=${uid}` : ''}`)
+    axios.get(`${BACKEND}/api/leaderboard${uid ? `?firebaseUid=${uid}` : ''}`)
       .then(res => {
         setTop100(res.data.top100 ?? []);
         setUserRank(res.data.userRank ?? null);
@@ -127,7 +129,6 @@ export default function Leaderboard({ playerData, onBack }) {
           <p style={{ textAlign: 'center', color: '#ef4444', padding: 60, fontSize: 14 }}>{error}</p>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            {/* Sticky header */}
             <thead>
               <tr style={{ position: 'sticky', top: 0, zIndex: 10, background: '#111118' }}>
                 {['Rank', 'Player', 'Tier', 'ELO', ''].map((h, i) => (
@@ -159,12 +160,9 @@ export default function Leaderboard({ playerData, onBack }) {
                       transition: 'background 0.2s',
                     }}
                   >
-                    {/* Rank */}
                     <td style={{ padding: '13px 20px', textAlign: 'center', width: 64 }}>
                       <RankBadge rank={rank} />
                     </td>
-
-                    {/* Player */}
                     <td style={{ padding: '13px 20px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{
@@ -196,13 +194,9 @@ export default function Leaderboard({ playerData, onBack }) {
                         </div>
                       </div>
                     </td>
-
-                    {/* Tier */}
                     <td style={{ padding: '13px 20px' }}>
                       <TierLabel elo={player.elo} />
                     </td>
-
-                    {/* ELO */}
                     <td style={{ padding: '13px 20px', textAlign: 'right' }}>
                       <span style={{
                         fontSize: 15, fontWeight: 700, fontFamily: 'monospace',
@@ -211,8 +205,6 @@ export default function Leaderboard({ playerData, onBack }) {
                         {player.elo.toLocaleString()}
                       </span>
                     </td>
-
-                    {/* ELO bar */}
                     <td style={{ padding: '13px 20px 13px 0', width: 100 }}>
                       <EloBar elo={player.elo} max={maxElo} />
                     </td>
@@ -224,7 +216,6 @@ export default function Leaderboard({ playerData, onBack }) {
         )}
       </div>
 
-      {/* ── Sticky footer — shown when user is outside top 100 ── */}
       {showFooter && (
         <motion.div
           initial={{ opacity: 0, y: 24 }}
@@ -246,37 +237,26 @@ export default function Leaderboard({ playerData, onBack }) {
           }}>
             {playerData.username?.[0]?.toUpperCase()}
           </div>
-
           <div>
             <span style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9' }}>
               {playerData.username}
             </span>
-            <span style={{
-              marginLeft: 8, fontSize: 10, fontWeight: 700,
-              color: '#10b981', letterSpacing: '0.06em',
-            }}>
+            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: '#10b981', letterSpacing: '0.06em' }}>
               YOU
             </span>
             <p style={{ margin: '2px 0 0', fontSize: 12, color: '#475569' }}>
               Not yet in the top 100
             </p>
           </div>
-
           <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-            <p style={{ margin: 0, fontSize: 11, color: '#475569', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              Your Rank
-            </p>
+            <p style={{ margin: 0, fontSize: 11, color: '#475569', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Your Rank</p>
             <span style={{ fontSize: 20, fontWeight: 800, color: '#f1f5f9', fontFamily: 'monospace' }}>
               #{userRank.rank.toLocaleString()}
             </span>
           </div>
-
           <div style={{ width: 1, height: 36, background: '#1e1e2e' }} />
-
           <div style={{ textAlign: 'right' }}>
-            <p style={{ margin: 0, fontSize: 11, color: '#475569', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              ELO
-            </p>
+            <p style={{ margin: 0, fontSize: 11, color: '#475569', letterSpacing: '0.06em', textTransform: 'uppercase' }}>ELO</p>
             <span style={{ fontSize: 20, fontWeight: 800, color: '#10b981', fontFamily: 'monospace' }}>
               {userRank.elo.toLocaleString()}
             </span>
