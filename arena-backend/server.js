@@ -39,6 +39,7 @@ app.post('/api/execute', executeLimiter, async (req, res) => {
     const languageMap = {
       javascript: { language: 'nodejs',  versionIndex: '4' },
       python:     { language: 'python3', versionIndex: '4' },
+      'c++':      { language: 'cpp17',   versionIndex: '1' },
       cpp:        { language: 'cpp17',   versionIndex: '1' },
       java:       { language: 'java',    versionIndex: '4' },
     };
